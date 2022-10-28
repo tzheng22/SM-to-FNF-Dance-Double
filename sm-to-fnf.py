@@ -7,6 +7,21 @@ while c < len(together_old):
     together.append(together_old[c].replace("\n", ""))
     c += 1
 
+together_new = []
+i = 0
+while i < len(together):
+    j = 0
+    k = 0
+    while j < 192:
+        snap1 = 192 / int((len(together[i]) / 8))
+        if j % snap1 == 0:
+            together_new.append(together[i][8 * k:8 * (k + 1)])
+            k += 1
+        else:
+            together_new.append("00000000")
+        j += 1
+    i += 1
+
 with open("bpms.txt", "r") as f:
     bpmsTimestamps = f.read().splitlines()
 
@@ -28,50 +43,48 @@ bpmofnotes = []
 currBeatInMilliSeconds = 0
 currBeat = 0
 
-measure = 0
+line = 0
 hold = [0, 0, 0, 0, 0, 0, 0, 0]
 holdtimestamp = [0, 0, 0, 0, 0, 0, 0, 0]
 counthold = [False, False, False, False, False, False, False, False]
-while measure < len(together):
-    line = 0
+while line < len(together_new):
     if currentBPMIndex < len(timestamps) - 1 and float(timestamps[currentBPMIndex + 1]) == round(currBeat, 3):
         currentBPMIndex += 1
         currentBPM = float(bpm[currentBPMIndex])
         millisecondsPerBeat = 60000 / currentBPM
-    while line < len(together[measure]) / 8:
-        lane = 0
-        while lane < 8:
-            if counthold[lane]:
-                hold[lane] += millisecondsPerBeat / 48
-            if together[measure][8 * line + lane:8 * line + lane + 1] == "1":
-                notes.append([currBeatInMilliSeconds, lane, 0, 0])
-            if together[measure][8 * line + lane:8 * line + lane + 1] == "M":
-                notes.append([currBeatInMilliSeconds, lane, 0, 3])
-            if together[measure][8 * line + lane:8 * line + lane + 1] == "2":
-                counthold[lane] = True
-                holdtimestamp[lane] = currBeatInMilliSeconds
-            if together[measure][8 * line + lane:8 * line + lane + 1] == "3":
-                counthold[lane] = False
-                noteIndex = 0
-                while noteIndex < len(notes) and round(holdtimestamp[lane], 6) > round(notes[noteIndex][0], 6):
-                    noteIndex += 1
-                if noteIndex == len(notes):
-                    notes.append([holdtimestamp[lane], lane, hold[lane], 0])
-                else:
-                    notes.insert(noteIndex, [holdtimestamp[lane], lane, hold[lane], 0])
-                hold[lane] = 0
-                holdtimestamp[lane] = 0
-            lane += 1
-        currBeatInMilliSeconds += millisecondsPerBeat / 48
-        currBeat += 1 / 48
-        line += 1
+    lane = 0
+    while lane < 8:
+        if counthold[lane]:
+            hold[lane] += millisecondsPerBeat / 48
+        if together_new[line][lane:lane + 1] == "1":
+            notes.append([currBeatInMilliSeconds, lane, 0, 0])
+        if together_new[line][lane:lane + 1] == "M":
+            notes.append([currBeatInMilliSeconds, lane, 0, 3])
+        if together_new[line][lane:lane + 1] == "2":
+            counthold[lane] = True
+            holdtimestamp[lane] = currBeatInMilliSeconds
+        if together_new[line][lane:lane + 1] == "3":
+            counthold[lane] = False
+            noteIndex = 0
+            while noteIndex < len(notes) and round(holdtimestamp[lane], 6) > round(notes[noteIndex][0], 6):
+                noteIndex += 1
+            if noteIndex == len(notes):
+                notes.append([holdtimestamp[lane], lane, hold[lane], 0])
+            else:
+                notes.insert(noteIndex, [holdtimestamp[lane], lane, hold[lane], 0])
+            hold[lane] = 0
+            holdtimestamp[lane] = 0
+        lane += 1
+    currBeatInMilliSeconds += millisecondsPerBeat / 48
+    currBeat += 1 / 48
     changeBPM = currentBPMIndex > 0 and currentBPM != bpm[currentBPMIndex - 1]
     if changeBPM:
         changeBPM = "true"
     else:
         changeBPM = "false"
-    bpmofnotes.append([currentBPM, changeBPM])
-    measure += 1
+    if round(currBeat, 3) % 4 == 0:
+        bpmofnotes.append([currentBPM, changeBPM])
+    line += 1
 
 sectionNotesCollection = []
 for measure in together:
